@@ -1,0 +1,56 @@
+name: Claude GitHub Analysis
+description: Analyze pull requests and issues with the Anthropic SDK
+inputs:
+  anthropic-api-key:
+    description: Anthropic API key
+    required: true
+  github-token:
+    description: GitHub token with repository read and comment/review permissions
+    required: true
+  model:
+    description: Claude model ID
+    default: claude-sonnet-4-6
+  features:
+    description: Comma-separated review,summary,categorize,commit,tests,docs; empty uses event defaults
+    default: ''
+  prompt:
+    description: Additional trusted instructions
+    default: ''
+  max-tokens:
+    description: Maximum output tokens (1-8192)
+    default: '2048'
+  max-input-chars:
+    description: Maximum context characters (1000-200000)
+    default: '60000'
+  publish:
+    description: comment, review, or none
+    default: comment
+outputs:
+  published:
+    description: Whether an analysis was posted
+    value: ${{ steps.analyze.outputs.published }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4.4.0
+      with:
+        node-version: '22'
+    - name: Install integration dependencies
+      shell: bash
+      env:
+        INTEGRATION_ROOT: ${{ github.action_path }}/..
+      run: npm ci --omit=dev --ignore-scripts --prefix "$INTEGRATION_ROOT"
+    - name: Analyze event
+      id: analyze
+      shell: bash
+      env:
+        INTEGRATION_ROOT: ${{ github.action_path }}/..
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CLAUDE_MODEL: ${{ inputs.model }}
+        CLAUDE_FEATURES: ${{ inputs.features }}
+        CLAUDE_PROMPT: ${{ inputs.prompt }}
+        CLAUDE_MAX_TOKENS: ${{ inputs.max-tokens }}
+        CLAUDE_MAX_INPUT_CHARS: ${{ inputs.max-input-chars }}
+        CLAUDE_PUBLISH: ${{ inputs.publish }}
+      run: node "$INTEGRATION_ROOT/github-action/index.js"
