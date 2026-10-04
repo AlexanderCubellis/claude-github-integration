@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { normalizeConfig, FEATURES } from '../lib/config.js';
 import { analyze, truncate } from '../lib/claude.js';
 import { getPullRequestContext, getIssueContext, publishAnalysis, readWithRetry, parseRepository, parseNumber } from '../lib/github.js';
@@ -150,6 +153,16 @@ test('CLI exercises PR, issue, local code, and explicit publication using mock S
   assert.match(calls.at(-1).system, /documentation/);
   assert.equal(output.length, 3);
   await assert.rejects(program().parseAsync(['pr', 'bad-repo', '7'], { from: 'user' }));
+});
+
+test('CLI executes through the symlink used by npm link', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'claude-cli-link-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const executable = join(dir, 'claude-github');
+  await symlink(fileURLToPath(new URL('../cli/index.js', import.meta.url)), executable);
+  const { stdout } = await promisify(execFile)(process.execPath, [executable, '--help']);
+  assert.match(stdout, /Usage: claude-github/);
+  assert.match(stdout, /code \[options\] <file>/);
 });
 
 test('Action handles PRs, issues, manual runs, outputs, and skips fork/unsupported events', async t => {

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createHmac, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { join } from 'node:path';
-import { mkdir, readFile, stat, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { createApp, verifySignature } from '../github-app/server.js';
 import { createSettingsStore } from '../github-app/store.js';
 
@@ -76,6 +77,7 @@ test('health, secure response headers, and unsigned webhook rejection', async t 
   const health = await fixture.request('/health');
   assert.deepEqual(await health.json(), { status: 'ok' });
   assert.equal(health.headers.get('cache-control'), 'no-store');
+  assert.match(health.headers.get('content-security-policy'), /connect-src 'self'/);
   assert.equal(health.headers.get('x-powered-by'), null);
   const response = await fixture.request('/webhooks', { method: 'POST', body: '{}' });
   assert.equal(response.status, 401);
@@ -198,8 +200,7 @@ test('bounded payloads and IP rate limits reject excess requests', async t => {
 });
 
 test('settings persist atomically in a private file and concurrent writes are retained', async t => {
-  const directory = join('github-app', `.test-data-${randomBytes(8).toString('hex')}`);
-  await mkdir(directory, { mode: 0o700 });
+  const directory = await mkdtemp(join(tmpdir(), 'claude-app-store-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = await createSettingsStore(directory);
   await Promise.all([store.set(9, { publish: 'review' }), store.set(10, { publish: 'none' })]);

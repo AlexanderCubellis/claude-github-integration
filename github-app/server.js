@@ -125,7 +125,8 @@ export async function createApp(options = {}) {
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-      'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'" });
+      'Referrer-Policy': 'no-referrer',
+      'Content-Security-Policy': "default-src 'none'; connect-src 'self'; frame-ancestors 'none'" });
     if (limited(`ip:${req.socket.remoteAddress}`, 120)) return res.status(429).json({ error: 'Rate limit exceeded' });
     next();
   });

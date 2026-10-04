@@ -1,6 +1,6 @@
 # GitHub App server
 
-Requires Node.js 22, the project's installed dependencies, and the shared `lib/` integration. Run:
+Requires Node.js 22.12 or newer, the project's installed dependencies, and the shared `lib/` integration. Run:
 
 ```sh
 npm start

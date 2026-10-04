@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { readFile, stat } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { createClaude, analyze } from '../lib/claude.js';
 import { createGitHub, parseRepository, parseNumber } from '../lib/github.js';
@@ -53,7 +54,7 @@ export function createProgram({ claudeFactory = createClaude, githubFactory = cr
   return program;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   createProgram().parseAsync().catch(() => {
     console.error('Analysis failed. Check configuration, credentials, permissions, and API quotas.');
     process.exitCode = 1;
