@@ -1,0 +1,43 @@
+name: Claude review with audit logs
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: claude-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # Run trusted default-branch code only. Fork reviews are logged as skipped.
+    # Never execute PR code with repository credentials.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Analyze and show the audit trail
+        run: node src/action.js
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUDIT_LOG_DIR: ${{ runner.temp }}/claude-audit
+      - name: Save audit records even if the review failed
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/claude-audit/*.jsonl
+          if-no-files-found: warn
+          retention-days: 30
