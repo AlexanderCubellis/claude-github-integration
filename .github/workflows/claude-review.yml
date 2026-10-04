@@ -28,7 +28,31 @@ jobs:
         with:
           node-version: '22'
       - name: Analyze and show the audit trail
-        run: node src/action.js
+        run: |
+          if [ -f src/action.js ]; then
+            node src/action.js
+          else
+            node --input-type=module <<'NODE'
+          import { appendFileSync, mkdirSync } from 'node:fs';
+          import { join } from 'node:path';
+          import { randomUUID } from 'node:crypto';
+          const entry = {
+            timestamp: new Date().toISOString(), actionId: randomUUID(),
+            actionType: 'event_skipped', component: 'github-action',
+            repository: process.env.GITHUB_REPOSITORY, user: process.env.GITHUB_ACTOR,
+            event: process.env.GITHUB_EVENT_NAME, status: 'skipped',
+            humanReadable: 'The integration is not installed on the default branch yet. Merge the setup before requesting automatic reviews. No review or comment was made.',
+            details: { reason: 'installation_pending' },
+            links: { workflow: `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` },
+          };
+          mkdirSync(process.env.AUDIT_LOG_DIR, { recursive: true, mode: 0o700 });
+          appendFileSync(join(process.env.AUDIT_LOG_DIR, `${entry.timestamp.slice(0, 10)}.jsonl`),
+            JSON.stringify(entry) + '\n', { mode: 0o600 });
+          const message = `📝 [${entry.timestamp}] No Action Needed\n   Component: ${entry.component} | User: ${entry.user} | Event: ${entry.event}\n   Repo: ${entry.repository}\n   Status: ➖ Skipped\n   ${entry.humanReadable}\n   workflow: ${entry.links.workflow}\n`;
+          console.log(message);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, message);
+          NODE
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

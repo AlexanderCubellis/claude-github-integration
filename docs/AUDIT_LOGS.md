@@ -13,6 +13,8 @@ Use Node.js 22 or newer. The implementation uses Node's built-in APIs and has no
 
 The workflow sets up Node 22 and runs `node src/action.js` directly. It queues runs for the same resource rather than cancelling an active run.
 
+During the first setup PR, the trusted default branch may not contain `src/action.js` yet. The workflow records `event_skipped` with `details.reason: "installation_pending"` in console output, the run summary, and the JSONL artifact instead of failing or running untrusted PR code. Merge the setup into the default branch to enable reviews.
+
 Fork PRs run only the trusted default-branch implementation and emit `webhook_received` followed by `event_skipped`, with normal startup/completion logging and artifact upload. The shared event handler skips PRs whose head repository differs from the target repository **before any GitHub API request, Claude call, or comment write**. Fork runs do not need the Claude secret, which GitHub normally withholds from fork PRs. Repository settings may require approval before a fork workflow runs. Do not switch to `pull_request_target` to execute untrusted PR code with credentials. These automatic fork protections do not prevent an operator from explicitly analyzing a PR with the CLI.
 
 Read friendly messages in the workflow's **Analyze and show the audit trail** step and in the run's **Summary** (`GITHUB_STEP_SUMMARY`). Download JSONL from the artifact named `claude-audit-<run_id>-<run_attempt>`.
@@ -268,6 +270,7 @@ This prints the array; redirect stdout only to an access-controlled destination 
 | `rate_limited`, HTTP 429, or App busy 503 | Wait, honor `retryAfter` when supplied, and inspect the active request before manually rerunning/redelivering. There is no automatic API retry or App queue. |
 | Analysis succeeded but no comment | `*_analysis_complete` is not posting confirmation. Check later errors, `comment_posting_started`/`comment_posted`, GitHub write permissions, and CLI `--no-comment`. Inspect existing comments before retrying. |
 | Fork or repository skipped | Automatic fork reviews intentionally emit `event_skipped`; they do not call Claude or GitHub APIs. Check exact comma-separated `APP_REPOSITORIES` names for App allowlist skips and whether the event action is supported. |
+| `installation_pending` | The setup has not reached the default branch. Merge the implementation before expecting automatic reviews; the bootstrap skip still provides a summary and artifact. |
 | Invalid webhook signature | Match GitHub's secret to `WEBHOOK_SECRET` and preserve the exact raw body and `X-Hub-Signature-256` through the HTTPS proxy. Do not reserialize JSON or disable signature verification. |
 | GitHub delivery timeout or unexpected duplicate | Processing is synchronous and may outlast GitHub's timeout. Inspect audit logs and comments before redelivery; wait if busy. Deduplication lasts about one hour/1,000 IDs in memory and resets on restart, so it cannot guarantee exactly-once posting. |
 | Artifact absent | Check whether the job actually ran (Actions disabled, approval pending, or another platform restriction), whether logging reached file creation, the upload warning, and artifact expiry. `always()` attempts upload after failure but cannot upload nonexistent files or run in a job that never started. |
