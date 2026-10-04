@@ -1,0 +1,20 @@
+{
+  "name": "claude-github-integration",
+  "version": "1.0.0",
+  "description": "Comprehensive Claude + GitHub integration with Actions, App, and standalone tool",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test",
+    "cli": "node src/cli.js",
+    "app": "node src/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlexanderCubellis/claude-github-integration"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

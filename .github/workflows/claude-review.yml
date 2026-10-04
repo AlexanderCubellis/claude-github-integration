@@ -1,0 +1,67 @@
+name: Claude review with audit logs
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: claude-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # Run trusted default-branch code only. Fork reviews are logged as skipped.
+    # Never execute PR code with repository credentials.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Analyze and show the audit trail
+        run: |
+          if [ -f src/action.js ]; then
+            node src/action.js
+          else
+            node --input-type=module <<'NODE'
+          import { appendFileSync, mkdirSync } from 'node:fs';
+          import { join } from 'node:path';
+          import { randomUUID } from 'node:crypto';
+          const entry = {
+            timestamp: new Date().toISOString(), actionId: randomUUID(),
+            actionType: 'event_skipped', component: 'github-action',
+            repository: process.env.GITHUB_REPOSITORY, user: process.env.GITHUB_ACTOR,
+            event: process.env.GITHUB_EVENT_NAME, status: 'skipped',
+            humanReadable: 'The integration is not installed on the default branch yet. Merge the setup before requesting automatic reviews. No review or comment was made.',
+            details: { reason: 'installation_pending' },
+            links: { workflow: `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` },
+          };
+          mkdirSync(process.env.AUDIT_LOG_DIR, { recursive: true, mode: 0o700 });
+          appendFileSync(join(process.env.AUDIT_LOG_DIR, `${entry.timestamp.slice(0, 10)}.jsonl`),
+            JSON.stringify(entry) + '\n', { mode: 0o600 });
+          const message = `📝 [${entry.timestamp}] No Action Needed\n   Component: ${entry.component} | User: ${entry.user} | Event: ${entry.event}\n   Repo: ${entry.repository}\n   Status: ➖ Skipped\n   ${entry.humanReadable}\n   workflow: ${entry.links.workflow}\n`;
+          console.log(message);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, message);
+          NODE
+          fi
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUDIT_LOG_DIR: ${{ runner.temp }}/claude-audit
+      - name: Save audit records even if the review failed
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/claude-audit/*.jsonl
+          if-no-files-found: warn
+          retention-days: 30
