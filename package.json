@@ -1,0 +1,32 @@
+{
+  "name": "claude-github-integration",
+  "version": "1.0.0",
+  "description": "Comprehensive Claude + GitHub integration with Actions, App, and standalone tool",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "claude-github": "./cli/index.js"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node github-app/index.js",
+    "cli": "node cli/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AlexanderCubellis/claude-github-integration.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@octokit/auth-app": "^8.3.1",
+    "@octokit/rest": "^22.0.1",
+    "commander": "^15.0.0",
+    "express": "^5.2.1"
+  }
+}

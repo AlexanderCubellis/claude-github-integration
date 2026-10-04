@@ -1,0 +1,52 @@
+name: Claude analysis
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Target type
+        type: choice
+        options: [pr, issue]
+        required: true
+      number:
+        description: PR or issue number
+        required: true
+      features:
+        description: Comma-separated analysis features (empty uses event defaults)
+        default: ''
+      model:
+        description: Claude model ID
+        default: claude-sonnet-4-6
+      prompt:
+        description: Additional trusted instructions
+        default: ''
+      publish:
+        description: Publication mode
+        type: choice
+        options: [comment, review, none]
+        default: comment
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+concurrency:
+  group: claude-${{ github.repository }}-${{ github.event.pull_request.number || github.event.issue.number || inputs.number || github.run_id }}
+  cancel-in-progress: true
+jobs:
+  analyze:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Pin this reference to a reviewed commit SHA before production use.
+      - uses: AlexanderCubellis/claude-github-integration/github-action@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          features: ${{ inputs.features }}
+          model: ${{ inputs.model || 'claude-sonnet-4-6' }}
+          prompt: ${{ inputs.prompt }}
+          publish: ${{ inputs.publish || 'comment' }}
